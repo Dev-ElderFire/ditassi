@@ -36,10 +36,16 @@ export const syncOfflineRecords = async () => {
   
   for (const record of records) {
     try {
+      // Mapeando as propriedades para o formato esperado pelo Supabase
       const { error } = await supabase
         .from('time_records')
         .insert({
-          ...record,
+          user_id: record.userId,
+          type: record.type,
+          timestamp: record.timestamp,
+          location: record.location,
+          device: record.device,
+          offline_id: record.offline_id,
           synced: true
         });
       
