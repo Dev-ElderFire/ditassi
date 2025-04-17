@@ -1,11 +1,10 @@
-
 import React, { useState } from "react";
 import { Outlet, Navigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  Clock,
+  Coffee,
   Calendar,
   User,
   Users,
@@ -47,7 +46,6 @@ export function MainLayout() {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Navigation links based on user role
   const navigationLinks = [
     {
       title: "Dashboard",
@@ -58,7 +56,7 @@ export function MainLayout() {
     {
       title: "Registro de Ponto",
       href: "/clock",
-      icon: Clock,
+      icon: Coffee,
       roles: ["admin", "employee", "manager"],
     },
     {
@@ -131,7 +129,7 @@ export function MainLayout() {
         <div className="flex h-full flex-col">
           {/* Logo/Header */}
           <div className="flex h-16 items-center px-4 py-4">
-            <h1 className="text-xl font-bold text-white">Hora Certa</h1>
+            <h1 className="text-xl font-bold text-white">DiTassi Caffé</h1>
           </div>
           <Separator className="bg-sidebar-border" />
 

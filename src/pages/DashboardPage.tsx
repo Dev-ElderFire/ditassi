@@ -1,17 +1,15 @@
-
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TimeClockCard } from "@/components/dashboard/TimeClockCard";
 import { WorkSummaryCard } from "@/components/dashboard/WorkSummaryCard";
 import { RecentActivitiesCard } from "@/components/dashboard/RecentActivitiesCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Clock } from "lucide-react";
+import { Coffee } from "lucide-react";
 
 export default function DashboardPage() {
   const { authState } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update clock every second
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
@@ -58,7 +56,7 @@ export default function DashboardPage() {
                   {formatCurrentDate()}
                 </p>
                 <div className="flex items-center">
-                  <Clock className="h-5 w-5 mr-2 text-primary" />
+                  <Coffee className="h-5 w-5 mr-2 text-primary" />
                   <span className="text-2xl font-bold">{formatCurrentTime()}</span>
                 </div>
               </div>
