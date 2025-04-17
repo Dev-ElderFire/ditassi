@@ -1,5 +1,10 @@
+
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { TimeRecord, User, GeoLocation } from "@/types";
+import { 
+  TimeRecord, 
+  User, 
+  GeoLocation 
+} from "@/types";
 import { 
   getTodayTimeRecords, 
   getNextExpectedAction, 
@@ -8,13 +13,6 @@ import {
 } from "@/lib/timeRecord";
 import { useAuth } from "./AuthContext";
 import { getCurrentLocation } from "@/lib/utils/geo";
-import { 
-  saveOfflineRecord, 
-  syncOfflineRecords, 
-  isOnline,
-  getOfflineRecords 
-} from "@/lib/utils/offlineSync";
-import { toast } from "@/components/ui/use-toast";
 
 interface TimeRecordContextType {
   todayRecords: TimeRecord[];
@@ -29,43 +27,15 @@ interface TimeRecordContextType {
 
 const TimeRecordContext = createContext<TimeRecordContextType | undefined>(undefined);
 
-export const TimeRecordProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const TimeRecordProvider: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
   const { authState } = useAuth();
   const [todayRecords, setTodayRecords] = useState<TimeRecord[]>([]);
   const [recentRecords, setRecentRecords] = useState<TimeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextAction, setNextAction] = useState<"check-in" | "break-start" | "break-end" | "check-out" | null>("check-in");
-
-  // Online/offline status monitoring
-  useEffect(() => {
-    const handleOnline = () => {
-      syncOfflineRecords().then(() => {
-        if (authState.user) {
-          fetchTodayRecords(authState.user.id);
-        }
-      });
-      toast({
-        title: "Conexão Restaurada",
-        description: "Seus registros offline serão sincronizados automaticamente.",
-      });
-    };
-
-    const handleOffline = () => {
-      toast({
-        title: "Modo Offline",
-        description: "Seus registros serão salvos localmente e sincronizados quando a conexão for restaurada.",
-      });
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [authState.user]);
 
   // Fetch today's records
   const fetchTodayRecords = async (userId: string) => {
@@ -119,6 +89,7 @@ export const TimeRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, [authState.isAuthenticated, authState.user]);
 
+  // Record a new time entry
   const recordTimeEntry = async (
     type: "check-in" | "break-start" | "break-end" | "check-out",
     device: "web" | "mobile" | "totem" | "qrcode" = "web"
@@ -126,42 +97,26 @@ export const TimeRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!authState.user) {
       throw new Error("Usuário não autenticado");
     }
-
+    
     setIsLoading(true);
     setError(null);
-
+    
     try {
+      // Get current location
       const location = await getCurrentLocation();
-      const record = {
-        userId: authState.user.id,
-        type,
-        timestamp: new Date(),
-        location,
-        device
-      };
-
-      if (!isOnline()) {
-        const offlineRecord = await saveOfflineRecord(record);
-        toast({
-          title: "Registro Salvo Offline",
-          description: "Será sincronizado quando a conexão for restaurada.",
-        });
-        
-        // Update local state with offline record
-        setTodayRecords(prev => [...prev, { ...offlineRecord, id: offlineRecord.offline_id }]);
-        return offlineRecord as TimeRecord;
-      }
-
+      
+      // Create record
       const newRecord = await createTimeRecord(
         authState.user,
         type,
         location,
         device
       );
-
+      
+      // Refresh today's records
       await fetchTodayRecords(authState.user.id);
       await fetchRecentRecords(authState.user.id);
-
+      
       return newRecord;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha ao registrar ponto");
