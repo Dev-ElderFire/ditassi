@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { TimeRecord, User, GeoLocation } from "@/types";
 import { 
@@ -148,14 +147,9 @@ export const TimeRecordProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           description: "Será sincronizado quando a conexão for restaurada.",
         });
         
-        // Convertendo o offlineRecord para TimeRecord para ser compatível com o state
-        const offlineAsTimeRecord: TimeRecord = {
-          ...offlineRecord,
-          id: offlineRecord.offline_id // Usando offline_id como id temporário
-        };
-        
-        setTodayRecords(prev => [...prev, offlineAsTimeRecord]);
-        return offlineAsTimeRecord;
+        // Update local state with offline record
+        setTodayRecords(prev => [...prev, { ...offlineRecord, id: offlineRecord.offline_id }]);
+        return offlineRecord as TimeRecord;
       }
 
       const newRecord = await createTimeRecord(
