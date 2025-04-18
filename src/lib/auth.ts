@@ -19,7 +19,7 @@ export const initialAuthState: AuthState = {
   error: null,
 };
 
-// Mock login function
+// Login function
 export async function login(email: string, password: string): Promise<User> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 800));
@@ -62,7 +62,7 @@ export async function login(email: string, password: string): Promise<User> {
   return user;
 }
 
-// Mock logout function
+// Logout function
 export async function logout(): Promise<void> {
   // Simulate network delay
   await new Promise((resolve) => setTimeout(resolve, 300));
@@ -71,7 +71,7 @@ export async function logout(): Promise<void> {
   localStorage.removeItem("user");
 }
 
-// Mock registration function
+// Registration function
 export async function register(
   name: string,
   email: string,
@@ -100,6 +100,9 @@ export async function register(
     position,
     createdAt: new Date(),
   };
+  
+  // Add to local users array for persistence within the session
+  users.push(newUser);
   
   // Store in localStorage for persistence
   localStorage.setItem("user", JSON.stringify(newUser));
@@ -131,19 +134,24 @@ export async function register(
 
 // Check if user is already logged in
 export function getStoredUser(): User | null {
-  const userJson = localStorage.getItem("user");
-  
-  if (!userJson) {
-    return null;
-  }
-  
   try {
+    const userJson = localStorage.getItem("user");
+    
+    if (!userJson) {
+      return null;
+    }
+    
     const userData = JSON.parse(userJson);
+    
     // Ensure dates are properly parsed
-    userData.createdAt = new Date(userData.createdAt);
+    if (userData.createdAt) {
+      userData.createdAt = new Date(userData.createdAt);
+    }
+    
     return userData;
   } catch (error) {
     console.error("Failed to parse stored user data", error);
+    localStorage.removeItem("user"); // Clear invalid data
     return null;
   }
 }

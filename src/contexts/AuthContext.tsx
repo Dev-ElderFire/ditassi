@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { AuthState, initialAuthState, login, logout, register, getStoredUser } from "@/lib/auth";
 import { User } from "@/types";
+import { toast } from "sonner";
 
 // Create context with initial state
 const AuthContext = createContext<{
@@ -21,16 +22,18 @@ export const AuthProvider: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialAuthState);
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
 
   // Check if user is already logged in
   useEffect(() => {
     const checkAuth = async () => {
-      setAuthState((prev) => ({ ...prev, isLoading: true }));
-      
       try {
+        setAuthState((prev) => ({ ...prev, isLoading: true }));
+        
         const storedUser = getStoredUser();
         
         if (storedUser) {
+          console.log("User found in localStorage:", storedUser.name);
           setAuthState({
             user: storedUser,
             isAuthenticated: true,
@@ -38,6 +41,7 @@ export const AuthProvider: React.FC<{
             error: null,
           });
         } else {
+          console.log("No user found in localStorage");
           setAuthState({
             user: null,
             isAuthenticated: false,
@@ -46,12 +50,15 @@ export const AuthProvider: React.FC<{
           });
         }
       } catch (error) {
+        console.error("Error during auth check:", error);
         setAuthState({
           user: null,
           isAuthenticated: false,
           isLoading: false,
           error: "Falha ao verificar autenticação",
         });
+      } finally {
+        setInitialCheckDone(true);
       }
     };
     
@@ -71,12 +78,15 @@ export const AuthProvider: React.FC<{
         isLoading: false,
         error: null,
       });
+      
+      toast.success(`Bem-vindo, ${user.name.split(' ')[0]}!`);
     } catch (error) {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
         error: error instanceof Error ? error.message : "Falha ao fazer login",
       }));
+      toast.error("Falha ao fazer login: " + (error instanceof Error ? error.message : "Erro desconhecido"));
       throw error;
     }
   };
@@ -94,12 +104,15 @@ export const AuthProvider: React.FC<{
         isLoading: false,
         error: null,
       });
+      
+      toast.info("Sessão encerrada com sucesso");
     } catch (error) {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
         error: "Falha ao fazer logout",
       }));
+      toast.error("Falha ao fazer logout");
     }
   };
 
@@ -123,12 +136,15 @@ export const AuthProvider: React.FC<{
         isLoading: false,
         error: null,
       });
+      
+      toast.success(`Conta criada com sucesso! Bem-vindo, ${user.name.split(' ')[0]}!`);
     } catch (error) {
       setAuthState((prev) => ({
         ...prev,
         isLoading: false,
         error: error instanceof Error ? error.message : "Falha ao registrar",
       }));
+      toast.error("Falha ao registrar: " + (error instanceof Error ? error.message : "Erro desconhecido"));
       throw error;
     }
   };
