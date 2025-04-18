@@ -5,14 +5,10 @@ import {
   User, 
   GeoLocation 
 } from "@/types";
-import { 
-  getTodayTimeRecords, 
-  getNextExpectedAction, 
-  createTimeRecord,
-  getUserTimeRecords
-} from "@/lib/timeRecord";
-import { useAuth } from "./AuthContext";
 import { getCurrentLocation } from "@/lib/utils/geo";
+import { useAuth } from "./AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface TimeRecordContextType {
   todayRecords: TimeRecord[];
@@ -37,23 +33,72 @@ export const TimeRecordProvider: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [nextAction, setNextAction] = useState<"check-in" | "break-start" | "break-end" | "check-out" | null>("check-in");
 
+  // Calculate next expected action
+  const getNextExpectedAction = (records: TimeRecord[]): "check-in" | "break-start" | "break-end" | "check-out" | null => {
+    if (records.length === 0) {
+      return "check-in";
+    }
+    
+    const lastRecord = records[records.length - 1];
+    
+    switch (lastRecord.type) {
+      case "check-in":
+        return "break-start";
+      case "break-start":
+        return "break-end";
+      case "break-end":
+        return "check-out";
+      case "check-out":
+        return null; // Day complete
+      default:
+        return "check-in";
+    }
+  };
+
   // Fetch today's records
   const fetchTodayRecords = async (userId: string) => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const records = await getTodayTimeRecords(userId);
-      setTodayRecords(records);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const todayISOStart = today.toISOString();
+      const tomorrowISOStart = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      
+      const { data, error } = await supabase
+        .from('time_records')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('timestamp', todayISOStart)
+        .lt('timestamp', tomorrowISOStart)
+        .order('timestamp', { ascending: true });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Transform data to match TimeRecord type
+      const formattedRecords: TimeRecord[] = data.map((record: any) => ({
+        id: record.id,
+        userId: record.user_id,
+        timestamp: record.timestamp,
+        type: record.type,
+        device: record.device,
+        location: record.location,
+      }));
+      
+      setTodayRecords(formattedRecords);
       
       // Calculate next expected action
-      const next = getNextExpectedAction(records);
+      const next = getNextExpectedAction(formattedRecords);
       setNextAction(next);
       
-      return records;
+      return formattedRecords;
     } catch (err) {
-      setError("Falha ao carregar registros de hoje");
       console.error("Failed to fetch today's records:", err);
+      setError("Falha ao carregar registros de hoje");
       return [];
     } finally {
       setIsLoading(false);
@@ -63,14 +108,30 @@ export const TimeRecordProvider: React.FC<{
   // Fetch recent records
   const fetchRecentRecords = async (userId: string, limit = 20) => {
     try {
-      const records = await getUserTimeRecords(userId);
-      // Sort by timestamp, newest first
-      records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const { data, error } = await supabase
+        .from('time_records')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(limit);
       
-      const limitedRecords = records.slice(0, limit);
-      setRecentRecords(limitedRecords);
+      if (error) {
+        throw new Error(error.message);
+      }
       
-      return limitedRecords;
+      // Transform data to match TimeRecord type
+      const formattedRecords: TimeRecord[] = data.map((record: any) => ({
+        id: record.id,
+        userId: record.user_id,
+        timestamp: record.timestamp,
+        type: record.type,
+        device: record.device,
+        location: record.location,
+      }));
+      
+      setRecentRecords(formattedRecords);
+      
+      return formattedRecords;
     } catch (err) {
       console.error("Failed to fetch recent records:", err);
       return [];
@@ -105,21 +166,47 @@ export const TimeRecordProvider: React.FC<{
       // Get current location
       const location = await getCurrentLocation();
       
-      // Create record
-      const newRecord = await createTimeRecord(
-        authState.user,
-        type,
-        location,
-        device
-      );
+      // Current time
+      const timestamp = new Date();
+      
+      // Insert directly to Supabase
+      const { data, error } = await supabase
+        .from('time_records')
+        .insert([{
+          user_id: authState.user.id,
+          timestamp: timestamp.toISOString(),
+          type,
+          device,
+          location
+        }])
+        .select()
+        .single();
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Format the returned record
+      const newRecord: TimeRecord = {
+        id: data.id,
+        userId: data.user_id,
+        timestamp: data.timestamp,
+        type: data.type,
+        device: data.device,
+        location: data.location,
+      };
       
       // Refresh today's records
       await fetchTodayRecords(authState.user.id);
       await fetchRecentRecords(authState.user.id);
       
+      toast.success(`Ponto registrado com sucesso: ${type}`);
+      
       return newRecord;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao registrar ponto");
+      const errorMessage = err instanceof Error ? err.message : "Falha ao registrar ponto";
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw err;
     } finally {
       setIsLoading(false);
@@ -131,12 +218,30 @@ export const TimeRecordProvider: React.FC<{
     setIsLoading(true);
     
     try {
-      const records = await getUserTimeRecords(userId);
-      // Sort by timestamp, newest first
-      records.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const { data, error } = await supabase
+        .from('time_records')
+        .select('*')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(limit);
       
-      return records.slice(0, limit);
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Transform data to match TimeRecord type
+      const formattedRecords: TimeRecord[] = data.map((record: any) => ({
+        id: record.id,
+        userId: record.user_id,
+        timestamp: record.timestamp,
+        type: record.type,
+        device: record.device,
+        location: record.location,
+      }));
+      
+      return formattedRecords;
     } catch (err) {
+      console.error("Failed to fetch user records:", err);
       setError("Falha ao buscar registros do usuário");
       return [];
     } finally {

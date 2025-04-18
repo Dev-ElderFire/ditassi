@@ -17,8 +17,7 @@ export default async function handler(req, res) {
     horario, 
     type = 'check-in', 
     device = 'web', 
-    location = null,
-    offline_id = null 
+    location = null
   } = req.body
 
   if (!user_id || !horario) {
@@ -26,24 +25,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check if this is a resync of an offline record by checking if offline_id exists
-    // and a record with that offline_id already exists
-    if (offline_id) {
-      const { data: existingRecords } = await supabase
-        .from('time_records')
-        .select('id')
-        .eq('offline_id', offline_id)
-        .limit(1);
-
-      if (existingRecords?.length > 0) {
-        // Record already exists, just return success
-        return res.status(200).json({ 
-          message: 'Registro já sincronizado anteriormente', 
-          data: existingRecords[0]
-        });
-      }
-    }
-
     // Insert new record
     const { data, error } = await supabase
       .from('time_records')
@@ -52,9 +33,7 @@ export default async function handler(req, res) {
         timestamp: horario,
         type,
         device,
-        location,
-        synced: true,
-        offline_id
+        location
       }])
 
     if (error) {

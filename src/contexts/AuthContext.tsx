@@ -1,8 +1,9 @@
 
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { AuthState, initialAuthState, login, logout, register, getStoredUser } from "@/lib/auth";
+import { AuthState, initialAuthState, login, logout, register, getCurrentUser, getCurrentSession } from "@/lib/auth";
 import { User } from "@/types";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 // Create context with initial state
 const AuthContext = createContext<{
@@ -30,18 +31,32 @@ export const AuthProvider: React.FC<{
       try {
         setAuthState((prev) => ({ ...prev, isLoading: true }));
         
-        const storedUser = getStoredUser();
+        // Get session from Supabase
+        const session = await getCurrentSession();
         
-        if (storedUser) {
-          console.log("User found in localStorage:", storedUser.name);
-          setAuthState({
-            user: storedUser,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
+        if (session) {
+          // Get user data
+          const user = await getCurrentUser();
+          
+          if (user) {
+            console.log("User found in Supabase session:", user.name);
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+          } else {
+            console.log("Session exists but user data not found");
+            setAuthState({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+            });
+          }
         } else {
-          console.log("No user found in localStorage");
+          console.log("No active session found");
           setAuthState({
             user: null,
             isAuthenticated: false,
@@ -63,6 +78,39 @@ export const AuthProvider: React.FC<{
     };
     
     checkAuth();
+    
+    // Set up auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth state changed:", event);
+        
+        if (event === 'SIGNED_IN' && session) {
+          // User signed in, get user data
+          const user = await getCurrentUser();
+          
+          if (user) {
+            setAuthState({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+          }
+        } else if (event === 'SIGNED_OUT') {
+          // User signed out
+          setAuthState({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+          });
+        }
+      }
+    );
+    
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   // Login handler

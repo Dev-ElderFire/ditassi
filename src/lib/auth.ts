@@ -1,6 +1,5 @@
 
 import { User } from "@/types";
-import { users } from "./mock-data";
 import { supabase } from "@/integrations/supabase/client";
 
 // Auth context state
@@ -21,54 +20,53 @@ export const initialAuthState: AuthState = {
 
 // Login function
 export async function login(email: string, password: string): Promise<User> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  // Login with Supabase
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
   
-  // Check if user exists (in a real app, we would check password too)
-  const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  if (error) {
+    throw new Error(error.message || "Falha ao fazer login");
+  }
   
-  if (!user) {
+  if (!data.user) {
     throw new Error("Usuário não encontrado");
   }
   
-  // In a real app, we would check the password here
-  // For demo, we'll just simulate a successful login
+  // Get user profile from usuarios table
+  const { data: profileData, error: profileError } = await supabase
+    .from('usuarios')
+    .select('*')
+    .eq('id_auth', data.user.id)
+    .single();
   
-  // Store in localStorage for persistence
-  localStorage.setItem("user", JSON.stringify(user));
-  
-  // Also store in Supabase if connected
-  try {
-    const { error } = await supabase
-      .from('usuarios')
-      .upsert({ 
-        id_auth: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        department: user.department || null,
-        position: user.position || null
-      }, { 
-        onConflict: 'id_auth' 
-      });
-      
-    if (error) {
-      console.error("Error saving user to Supabase:", error);
-    }
-  } catch (err) {
-    console.error("Exception saving user to Supabase:", err);
+  if (profileError) {
+    console.error("Error fetching user profile:", profileError);
   }
+  
+  // Construct user object
+  const user: User = {
+    id: data.user.id,
+    email: data.user.email || '',
+    name: profileData?.name || data.user.email?.split('@')[0] || 'Usuário',
+    role: profileData?.role || 'employee',
+    department: profileData?.department || undefined,
+    position: profileData?.position || undefined,
+    createdAt: new Date(data.user.created_at || Date.now()),
+  };
   
   return user;
 }
 
 // Logout function
 export async function logout(): Promise<void> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  const { error } = await supabase.auth.signOut();
   
-  // Remove from localStorage
-  localStorage.removeItem("user");
+  if (error) {
+    console.error("Error during logout:", error);
+    throw new Error("Falha ao fazer logout");
+  }
 }
 
 // Registration function
@@ -80,101 +78,85 @@ export async function register(
   department?: string,
   position?: string
 ): Promise<User> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Register with Supabase
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
+        role,
+        department,
+        position,
+      }
+    }
+  });
   
-  // Check if user already exists
-  const userExists = users.some((u) => u.email.toLowerCase() === email.toLowerCase());
-  
-  if (userExists) {
-    throw new Error("Usuário já existe");
+  if (error) {
+    throw new Error(error.message || "Falha ao registrar usuário");
   }
   
-  // Create new user (in a real app, this would be stored in a database)
-  const newUser: User = {
-    id: `${users.length + 1}`,
+  if (!data.user) {
+    throw new Error("Falha ao criar usuário");
+  }
+  
+  // Construct user object
+  const user: User = {
+    id: data.user.id,
+    email: data.user.email || '',
     name,
-    email,
     role,
     department,
     position,
-    createdAt: new Date(),
+    createdAt: new Date(data.user.created_at || Date.now()),
   };
   
-  // Add to local users array for persistence within the session
-  users.push(newUser);
-  
-  // Store in localStorage for persistence
-  localStorage.setItem("user", JSON.stringify(newUser));
-  
-  // Also store in Supabase if connected
-  try {
-    const { error } = await supabase
-      .from('usuarios')
-      .upsert({ 
-        id_auth: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        department: newUser.department || null,
-        position: newUser.position || null
-      }, { 
-        onConflict: 'id_auth' 
-      });
-      
-    if (error) {
-      console.error("Error saving new user to Supabase:", error);
-    }
-  } catch (err) {
-    console.error("Exception saving new user to Supabase:", err);
-  }
-  
-  return newUser;
+  return user;
 }
 
-// Check if user is already logged in
-export function getStoredUser(): User | null {
-  try {
-    const userJson = localStorage.getItem("user");
-    
-    if (!userJson) {
-      return null;
-    }
-    
-    const userData = JSON.parse(userJson);
-    
-    // Ensure dates are properly parsed
-    if (userData.createdAt) {
-      userData.createdAt = new Date(userData.createdAt);
-    }
-    
-    return userData;
-  } catch (error) {
-    console.error("Failed to parse stored user data", error);
-    localStorage.removeItem("user"); // Clear invalid data
+// Get current session
+export async function getCurrentSession() {
+  const { data, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error("Error getting session:", error);
     return null;
   }
+  
+  return data.session;
+}
+
+// Get current user
+export async function getCurrentUser(): Promise<User | null> {
+  const { data, error } = await supabase.auth.getUser();
+  
+  if (error || !data.user) {
+    return null;
+  }
+  
+  // Get user profile from usuarios table
+  const { data: profileData } = await supabase
+    .from('usuarios')
+    .select('*')
+    .eq('id_auth', data.user.id)
+    .single();
+  
+  // Construct user object
+  const user: User = {
+    id: data.user.id,
+    email: data.user.email || '',
+    name: profileData?.name || data.user.email?.split('@')[0] || 'Usuário',
+    role: profileData?.role || 'employee',
+    department: profileData?.department || undefined,
+    position: profileData?.position || undefined,
+    createdAt: new Date(data.user.created_at || Date.now()),
+  };
+  
+  return user;
 }
 
 // Check user role
 export function hasRole(user: User | null, roles: ("admin" | "employee" | "manager")[]): boolean {
   if (!user) return false;
   return roles.includes(user.role);
-}
-
-// Get all users (admin only function)
-export async function getAllUsers(): Promise<User[]> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 800));
-  
-  return users;
-}
-
-// Get user by ID
-export async function getUserById(id: string): Promise<User | null> {
-  // Simulate network delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  
-  const user = users.find((u) => u.id === id);
-  return user || null;
 }
