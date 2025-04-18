@@ -9,7 +9,90 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          bio: string | null
+          created_at: string | null
+          id: number
+          updated_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string | null
+          id?: never
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string | null
+          id?: never
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      time_records: {
+        Row: {
+          created_at: string
+          device: string
+          id: string
+          location: Json | null
+          offline_id: string | null
+          sync_error: string | null
+          synced: boolean | null
+          timestamp: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device?: string
+          id?: string
+          location?: Json | null
+          offline_id?: string | null
+          sync_error?: string | null
+          synced?: boolean | null
+          timestamp?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device?: string
+          id?: string
+          location?: Json | null
+          offline_id?: string | null
+          sync_error?: string | null
+          synced?: boolean | null
+          timestamp?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usuarios: {
+        Row: {
+          email: string | null
+          id: number
+          id_auth: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: never
+          id_auth?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: never
+          id_auth?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

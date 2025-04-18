@@ -1,6 +1,7 @@
 
 import { User } from "@/types";
 import { users } from "./mock-data";
+import { supabase } from "@/integrations/supabase/client";
 
 // Auth context state
 export interface AuthState {
@@ -35,6 +36,24 @@ export async function login(email: string, password: string): Promise<User> {
   
   // Store in localStorage for persistence
   localStorage.setItem("user", JSON.stringify(user));
+  
+  // Also store in Supabase if connected
+  try {
+    const { error } = await supabase
+      .from('usuarios')
+      .upsert({ 
+        id_auth: user.id,
+        email: user.email
+      }, { 
+        onConflict: 'id_auth' 
+      });
+      
+    if (error) {
+      console.error("Error saving user to Supabase:", error);
+    }
+  } catch (err) {
+    console.error("Exception saving user to Supabase:", err);
+  }
   
   return user;
 }
@@ -80,6 +99,22 @@ export async function register(
   
   // Store in localStorage for persistence
   localStorage.setItem("user", JSON.stringify(newUser));
+  
+  // Also store in Supabase if connected
+  try {
+    const { error } = await supabase
+      .from('usuarios')
+      .insert({ 
+        id_auth: newUser.id,
+        email: newUser.email
+      });
+      
+    if (error) {
+      console.error("Error saving new user to Supabase:", error);
+    }
+  } catch (err) {
+    console.error("Exception saving new user to Supabase:", err);
+  }
   
   return newUser;
 }

@@ -1,3 +1,4 @@
+
 document.addEventListener('DOMContentLoaded', () => {
   // Cria um botão flutuante só pra testar
   const btn = document.createElement('button');
@@ -14,7 +15,23 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.style.cursor = 'pointer';
 
   btn.addEventListener('click', async () => {
-    const userId = prompt('Digite o ID do usuário:');
+    // Get the logged in user from localStorage if available
+    let userId = null;
+    try {
+      const userJson = localStorage.getItem("user");
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        userId = user.id;
+      }
+    } catch (e) {
+      console.error("Error getting user from localStorage:", e);
+    }
+    
+    // If not logged in, prompt for ID
+    if (!userId) {
+      userId = prompt('Digite o ID do usuário:');
+    }
+    
     const horario = new Date().toISOString();
 
     try {

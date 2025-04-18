@@ -1,3 +1,4 @@
+
 // pages/api/bater-ponto.js
 
 import { createClient } from '@supabase/supabase-js'
@@ -23,10 +24,16 @@ export default async function handler(req, res) {
 
   // Tenta inserir no Supabase
   const { data, error } = await supabase
-    .from('pontos')
-    .insert([{ user_id, horario }])
+    .from('time_records')
+    .insert([{ 
+      user_id, 
+      timestamp: horario,
+      type: 'check-in',
+      device: 'web' 
+    }])
 
   if (error) {
+    console.error("Error registering time record:", error);
     return res.status(500).json({ error: error.message })
   }
 
