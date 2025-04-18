@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   // Dados esperados no body
-  const { user_id, horario } = req.body
+  const { user_id, horario, type = 'check-in', device = 'web', location = null } = req.body
 
   if (!user_id || !horario) {
     return res.status(400).json({ error: 'user_id e horario são obrigatórios' })
@@ -28,8 +28,9 @@ export default async function handler(req, res) {
     .insert([{ 
       user_id, 
       timestamp: horario,
-      type: 'check-in',
-      device: 'web' 
+      type,
+      device,
+      location 
     }])
 
   if (error) {

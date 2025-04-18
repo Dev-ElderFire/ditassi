@@ -43,7 +43,11 @@ export async function login(email: string, password: string): Promise<User> {
       .from('usuarios')
       .upsert({ 
         id_auth: user.id,
-        email: user.email
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        department: user.department || null,
+        position: user.position || null
       }, { 
         onConflict: 'id_auth' 
       });
@@ -104,9 +108,15 @@ export async function register(
   try {
     const { error } = await supabase
       .from('usuarios')
-      .insert({ 
+      .upsert({ 
         id_auth: newUser.id,
-        email: newUser.email
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        department: newUser.department || null,
+        position: newUser.position || null
+      }, { 
+        onConflict: 'id_auth' 
       });
       
     if (error) {

@@ -1,83 +1,77 @@
 
-import { TimeRecord } from "@/types";
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
-import { Json } from "@/integrations/supabase/types";
+import { TimeRecord, GeoLocation } from "@/types";
 
-/**
- * Syncs a local time record to Supabase
- */
-export async function syncTimeRecord(record: TimeRecord): Promise<{
-  success: boolean;
-  error?: string;
-}> {
+// Sync pending time records to Supabase
+export async function syncPendingTimeRecords() {
   try {
-    // Format the record for insertion
-    const formattedRecord = {
-      id: record.id,
-      user_id: record.userId,
-      type: record.type,
-      timestamp: record.timestamp.toISOString(),
-      device: record.device,
-      location: record.location as Json,
-      offline_id: record.id, // Use the local ID for tracking
-      synced: true
-    };
+    // Get pending records from localStorage
+    const pendingRecordsJson = localStorage.getItem('pending_time_records');
+    if (!pendingRecordsJson) return [];
 
-    // Insert the record into Supabase
-    const { error } = await supabase
-      .from('time_records')
-      .insert(formattedRecord);
+    const pendingRecords = JSON.parse(pendingRecordsJson);
+    const syncedRecords = [];
 
-    if (error) {
-      console.error("Error syncing record to Supabase:", error);
-      return {
-        success: false,
-        error: error.message
-      };
+    for (const record of pendingRecords) {
+      // Convert GeoLocation to Json compatible format
+      let locationJson = null;
+      if (record.location) {
+        locationJson = {
+          latitude: record.location.latitude,
+          longitude: record.location.longitude,
+          accuracy: record.location.accuracy,
+          address: record.location.address
+        };
+      }
+
+      // Insert record to Supabase
+      const { data, error } = await supabase
+        .from('time_records')
+        .insert([{
+          id: record.id || uuidv4(),
+          user_id: record.userId,
+          timestamp: record.timestamp,
+          type: record.type,
+          device: record.device,
+          location: locationJson,
+          offline_id: record.id,
+          synced: true
+        }]);
+
+      if (error) {
+        console.error("Failed to sync record:", error);
+        continue;
+      }
+
+      syncedRecords.push(data);
     }
 
-    return { success: true };
-  } catch (error) {
-    console.error("Exception during sync:", error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error during sync'
-    };
+    // Clear synced records from localStorage
+    localStorage.setItem('pending_time_records', JSON.stringify([]));
+    return syncedRecords;
+  } catch (err) {
+    console.error("Error syncing pending records:", err);
+    return [];
   }
 }
 
-/**
- * Syncs all pending local records to Supabase
- */
-export async function syncPendingRecords(pendingRecords: TimeRecord[]): Promise<{
-  success: boolean;
-  synced: number;
-  failed: number;
-  errors: string[];
-}> {
-  const results = {
-    success: true,
-    synced: 0,
-    failed: 0,
-    errors: [] as string[]
-  };
-
-  // Process each record individually to handle partial success
-  for (const record of pendingRecords) {
-    const { success, error } = await syncTimeRecord(record);
+// Store time record locally when offline
+export function storeTimeRecordLocally(record: TimeRecord) {
+  try {
+    // Get existing pending records
+    const pendingRecordsJson = localStorage.getItem('pending_time_records');
+    const pendingRecords = pendingRecordsJson ? JSON.parse(pendingRecordsJson) : [];
     
-    if (success) {
-      results.synced++;
-    } else {
-      results.failed++;
-      if (error) {
-        results.errors.push(`Error with record ${record.id}: ${error}`);
-      }
-    }
+    // Add new record
+    pendingRecords.push(record);
+    
+    // Save back to localStorage
+    localStorage.setItem('pending_time_records', JSON.stringify(pendingRecords));
+    
+    return true;
+  } catch (err) {
+    console.error("Error storing record locally:", err);
+    return false;
   }
-  
-  // Consider the overall operation successful if at least one record was synced
-  results.success = results.synced > 0;
-  
-  return results;
 }

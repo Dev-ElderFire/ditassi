@@ -33,18 +33,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const horario = new Date().toISOString();
+    const type = 'check-in';
+    const device = 'web';
+    
+    // Get current location if available
+    let location = null;
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          });
+        });
+        
+        location = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy
+        };
+      }
+    } catch (e) {
+      console.warn("Error getting location:", e);
+    }
 
     try {
       const res = await fetch('/api/bater-ponto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, horario }),
+        body: JSON.stringify({ 
+          user_id: userId, 
+          horario,
+          type,
+          device,
+          location
+        }),
       });
 
       const data = await res.json();
       alert(data.message || 'Ponto registrado!');
     } catch (e) {
       alert('Erro ao bater ponto: ' + e.message);
+      
+      // Tenta salvar localmente se falhar online
+      const offlineRecord = {
+        id: Date.now().toString(),
+        userId: userId,
+        timestamp: horario,
+        type: type,
+        device: device,
+        location: location
+      };
+      
+      try {
+        const pendingRecordsJson = localStorage.getItem('pending_time_records');
+        const pendingRecords = pendingRecordsJson ? JSON.parse(pendingRecordsJson) : [];
+        pendingRecords.push(offlineRecord);
+        localStorage.setItem('pending_time_records', JSON.stringify(pendingRecords));
+        alert('Ponto salvo localmente. Será sincronizado quando houver conexão.');
+      } catch (e) {
+        alert('Erro ao salvar localmente: ' + e.message);
+      }
     }
   });
 
