@@ -77,19 +77,34 @@ export type Database = {
       }
       usuarios: {
         Row: {
+          created_at: string | null
+          department: string | null
           email: string | null
           id: number
           id_auth: string | null
+          name: string | null
+          position: string | null
+          role: string | null
         }
         Insert: {
+          created_at?: string | null
+          department?: string | null
           email?: string | null
           id?: never
           id_auth?: string | null
+          name?: string | null
+          position?: string | null
+          role?: string | null
         }
         Update: {
+          created_at?: string | null
+          department?: string | null
           email?: string | null
           id?: never
           id_auth?: string | null
+          name?: string | null
+          position?: string | null
+          role?: string | null
         }
         Relationships: []
       }

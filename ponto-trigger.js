@@ -1,6 +1,6 @@
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Cria um botão flutuante só pra testar
+  // Create floating button for testing
   const btn = document.createElement('button');
   btn.innerText = 'Bater ponto';
   btn.style.position = 'fixed';
@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   btn.style.cursor = 'pointer';
 
   btn.addEventListener('click', async () => {
-    // Get the logged in user from localStorage if available
+    // Get logged in user from localStorage
     let userId = null;
     try {
       const userJson = localStorage.getItem("user");
@@ -27,7 +27,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error("Error getting user from localStorage:", e);
     }
     
-    // If not logged in, prompt for ID
     if (!userId) {
       userId = prompt('Digite o ID do usuário:');
     }
@@ -76,14 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       alert('Erro ao bater ponto: ' + e.message);
       
-      // Tenta salvar localmente se falhar online
+      // Save locally if online sync fails
       const offlineRecord = {
-        id: Date.now().toString(),
-        userId: userId,
+        id: crypto.randomUUID(),
+        userId,
         timestamp: horario,
-        type: type,
-        device: device,
-        location: location
+        type,
+        device,
+        location,
+        synced: false
       };
       
       try {
